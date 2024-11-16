@@ -1,48 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import json
-import re
-from collections import Counter
 
-# Paso 1: Reconstruir o cargar el vocabulario
-print("Cargando el vocabulario...")
-try:
-    # Intentar cargar el vocabulario guardado
-    with open('vocab.json', 'r', encoding='utf-8') as f:
-        vocab = json.load(f)
-    print("Vocabulario cargado correctamente.")
-except FileNotFoundError:
-    print("No se encontró vocab.json. Reconstruyendo el vocabulario desde el texto original...")
-    with open('el_alquimista.txt', 'r', encoding='utf-8') as f:
-        text = f.read()
-    # Procesar el texto para generar vocabulario
-    text = text.lower()
-    text = re.sub(r'[^a-zñáéíóúü\s]', '', text)
-    words = text.split()
-    max_vocab_size = 20000  # Limitar el tamaño del vocabulario
-    word_counts = Counter(words)
-    vocab = {word: i + 4 for i, (word, _) in enumerate(word_counts.most_common(max_vocab_size))}
-    vocab['<pad>'] = 0
-    vocab['<unk>'] = 1
-    vocab['<sos>'] = 2
-    vocab['<eos>'] = 3
-    # Guardar el vocabulario para uso futuro
-    with open('vocab.json', 'w', encoding='utf-8') as f:
-        json.dump(vocab, f)
-    print("Vocabulario reconstruido y guardado.")
-
-# Invertir el vocabulario para decodificar
-reverse_vocab = {idx: word for word, idx in vocab.items()}
-
-# Paso 2: Definir el modelo Transformer (debe coincidir con el entrenamiento)
+# Definir el modelo Transformer (debe ser igual al utilizado durante el entrenamiento)
 class TransformerModel(nn.Module):
     def __init__(self, vocab_size, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward):
         super(TransformerModel, self).__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.transformer = nn.Transformer(d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward)
         self.fc_out = nn.Linear(d_model, vocab_size)
-        self.dropout = nn.Dropout(0.1)
+        self.dropout = nn.Dropout(0.1)  # Regularización con Dropout
 
     def forward(self, src, tgt):
         src = self.dropout(self.embedding(src)).permute(1, 0, 2)  # (seq_len, batch_size, d_model)
@@ -51,23 +18,38 @@ class TransformerModel(nn.Module):
         output = self.fc_out(output.permute(1, 0, 2))  # (batch_size, seq_len, vocab_size)
         return output
 
-# Paso 3: Cargar el modelo
+# Cargar el vocabulario desde un archivo JSON
+import json
+
+def load_vocab(vocab_path):
+    print("Cargando el vocabulario...")
+    with open(vocab_path, 'r') as f:
+        vocab = json.load(f)
+    print("Vocabulario cargado correctamente.")
+    return vocab
+
+# Cargar el vocabulario
+vocab_path = 'vocab.json'  # Cambia esta ruta si el archivo está en otro lugar
+vocab = load_vocab(vocab_path)
+
+# Cargar el modelo
 vocab_size = len(vocab)
-d_model = 256
-nhead = 4
-num_encoder_layers = 2
-num_decoder_layers = 2
+d_model = 512
+nhead = 8
+num_encoder_layers = 3
+num_decoder_layers = 4
 dim_feedforward = 512
 
+# Instanciar el modelo con los mismos parámetros que usaste durante el entrenamiento
 model = TransformerModel(vocab_size, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward)
 
+# Cargar el estado guardado del modelo
 print("Cargando el modelo entrenado...")
-state_dict = torch.load('transformer_el_alquimista.pth', map_location='cpu')
+state_dict = torch.load('transformer_el_alquimista.pth', map_location='cpu')  # Cambia la ruta si es necesario
 model.load_state_dict(state_dict)
-model.eval()
 print("Modelo cargado exitosamente.")
 
-# Paso 4: Función de generación de texto con sampling
+# Función de generación de texto con muestreo aleatorio o top-k sampling
 def generate_text_with_sampling(model, vocab, prompt, max_length=50, temperature=1.5, top_k=10):
     model.eval()
 
@@ -113,22 +95,25 @@ def generate_text_with_sampling(model, vocab, prompt, max_length=50, temperature
     generated_text = ' '.join([reverse_vocab.get(token, '<unk>') for token in output.squeeze().tolist()])
     return generated_text
 
-
-
-# Función para chatear
+# Función para interactuar con el modelo en forma de chat
 def chat_with_model(model, vocab):
     print("¡Hola! Soy un chatbot basado en 'El Alquimista'. Escribe 'salir' para terminar.")
+    
     while True:
-        prompt = input("Tú: ").strip()
-        if not prompt:
+        # Obtener la entrada del usuario (pregunta)
+        prompt = input("Tú: ")
+        if not prompt.strip():
             print("Por favor, escribe algo.")
             continue
         if prompt.lower() == 'salir':
             print("¡Adiós!")
             break
         
+        # Generar respuesta usando el modelo
         response = generate_text_with_sampling(model, vocab, prompt, temperature=1.5, top_k=10)
+        
+        # Imprimir la respuesta generada
         print("Bot: " + response)
 
-# Iniciar chat
+# Llamar a la función para chatear
 chat_with_model(model, vocab)
