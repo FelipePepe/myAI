@@ -7,7 +7,7 @@ from collections import Counter
 
 # Paso 1: Leer y Preprocesar el Texto
 print("Leer y preprocesar el texto...")
-with open('quijote.txt', 'r', encoding='utf-8') as f:
+with open('el_alquimista.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
 # Convertir a minúsculas y eliminar caracteres especiales
@@ -23,7 +23,7 @@ words = words[:max_words]
 
 # Paso 2: Crear el Vocabulario
 print("Crear el vocabulario...")
-max_vocab_size = 20000  # Limitar el tamaño del vocabulario
+max_vocab_size = 70000  # Limitar el tamaño del vocabulario
 word_counts = Counter(words)
 vocab = {word: i + 4 for i, (word, _) in enumerate(word_counts.most_common(max_vocab_size))}
 vocab['<pad>'] = 0  # Padding
@@ -82,10 +82,10 @@ class TransformerModel(nn.Module):
 # Parámetros del Modelo
 print("Definir el modelo Transformer...")
 vocab_size = len(vocab)
-d_model = 256
-nhead = 4
-num_encoder_layers = 2
-num_decoder_layers = 2
+d_model = 512
+nhead = 8
+num_encoder_layers = 3
+num_decoder_layers = 3
 dim_feedforward = 512
 model = TransformerModel(vocab_size, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward)
 
@@ -150,11 +150,11 @@ def train_model(model, train_loader, val_loader, num_epochs, vocab_size):
 
 # Entrenar el Modelo
 print("Entrenar el modelo...")
-num_epochs = 3
+num_epochs = 6
 train_model(model, train_loader, val_loader, num_epochs, vocab_size)
 
 # Paso 8: Guardar el Modelo Entrenado
 print("Guardar el modelo entrenado...")
-torch.save(model.state_dict(), 'transformer_quijote.pth')
+torch.save(model.state_dict(), 'transformer_el_alquimista.pth')
 
 print("Entrenamiento completado y modelo guardado.")
